@@ -1,8 +1,8 @@
 import os
 from fastapi import APIRouter, UploadFile, HTTPException
 from src.users.schemas import UserSchema, UserSettingsSchema
-from src.database.database import session_factory, redis_factory, s3_factory
-from src.users.models import User, Settings
+from src.database.database import session_factory, s3_factory
+from src.database.models import User, Settings
 from src.database.repository import AsyncBaseRepository
 
 BUCKET_NAME = os.getenv("BUCKET_NAME")

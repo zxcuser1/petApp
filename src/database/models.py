@@ -1,5 +1,7 @@
+from typing import Any
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, ForeignKey
+from geoalchemy2 import Geography
+from sqlalchemy import String, ForeignKey, SmallInteger
 from src.database.database import Base
 
 
@@ -11,8 +13,7 @@ class User(Base):
     images: Mapped[str] = mapped_column(String)
     city: Mapped[str] = mapped_column(String)
     age: Mapped[int] = mapped_column()
-    geo_sh: Mapped[float] = mapped_column()
-    geo_dolg: Mapped[float] = mapped_column()
+    location: Mapped[Any] = mapped_column(Geography(geometry_type='POINT', srid=4326))
     gender: Mapped[bool]
     settings: Mapped["Settings"] = relationship(back_populates="user", uselist=False)
 
@@ -29,10 +30,11 @@ class Likes(Base):
 class Settings(Base):
     __tablename__ = 'settings'
 
-    userId: Mapped[int] = mapped_column(ForeignKey('users.id'), primary_key=True)
-    ageL: Mapped[int] = mapped_column()
-    ageR: Mapped[int] = mapped_column()
-    radiusL: Mapped[int] = mapped_column()
-    radiusR: Mapped[int] = mapped_column()
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'), primary_key=True)
+    ageL: Mapped[int] = mapped_column(SmallInteger)
+    ageR: Mapped[int] = mapped_column(SmallInteger)
+    radiusL: Mapped[int] = mapped_column(SmallInteger)
+    radiusR: Mapped[int] = mapped_column(SmallInteger)
     gender: Mapped[bool] = mapped_column()
+
     user: Mapped["User"] = relationship(back_populates="settings")

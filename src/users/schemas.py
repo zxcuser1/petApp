@@ -1,13 +1,12 @@
-from fastapi import UploadFile
-from pydantic import BaseModel, Field, conlist
+from typing import List
+from pydantic import BaseModel, Field
 
 
 class UserSchema(BaseModel):
     name: str = Field(max_length=100)
     city: str
     age: int = Field(gt=17, le=120)
-    geo_sh: float
-    geo_dolg: float
+    coordinates: List[float]
     gender: bool
 
 

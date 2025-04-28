@@ -11,7 +11,7 @@ router = APIRouter()
 
 
 @router.post("/users/create_user")
-async def reg_user(user: UserSchema):
+async def create_user(user: UserSchema):
     try:
         async with session_factory() as session:
             repo = AsyncBaseRepository(session)
@@ -19,8 +19,7 @@ async def reg_user(user: UserSchema):
                 name=user.name,
                 city=user.city,
                 age=user.age,
-                geo_sh=user.geo_sh,
-                geo_dolg=user.geo_dolg,
+                location=f"POINT({user.coordinates[0]} {user.coordinates[1]})",
                 gender=user.gender,
                 settings=Settings(
                     ageL=18,
@@ -37,7 +36,7 @@ async def reg_user(user: UserSchema):
 
 
 @router.put("/user/{user_id}/update_user_settings")
-async def update_UserSettings(user_id: int, settings: UserSettingsSchema):
+async def update_user_settings(user_id: int, settings: UserSettingsSchema):
     try:
         async with session_factory() as session:
             repo = AsyncBaseRepository(session)

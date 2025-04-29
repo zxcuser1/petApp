@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 from src.users.router import router as user_router
-from src.likes.router import router as like_router
+from src.swipe.router import router as like_router
 
 main_router = APIRouter()
 

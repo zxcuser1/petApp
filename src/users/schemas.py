@@ -16,3 +16,15 @@ class UserSettingsSchema(BaseModel):
     radiusL: int = Field(ge=0, le=200)
     radiusR: int = Field(ge=radiusL, le=200)
     gender: bool
+
+
+class UserListSchema(BaseModel):
+    name: str = Field(max_length=100)
+    city: str
+    description: str = Field(max_length=150)
+    age: int = Field(gt=17, le=120)
+
+
+class UserInfoSchema(BaseModel):
+    city: str
+    description: str = Field(max_length=150)

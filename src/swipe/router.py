@@ -7,8 +7,8 @@ from sqlalchemy import select
 router = APIRouter()
 
 
-@router.post("/like/{source}_{target}")
-async def liked(source: int, target: int, is_liked: bool):
+@router.post("/swipe/{source}_{target}", description="Свайп от пользователя")
+async def swipe(source: int, target: int, is_liked: bool):
     try:
         async with session_factory() as session:
             repo = AsyncBaseRepository(session)

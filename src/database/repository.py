@@ -38,7 +38,7 @@ class AsyncBaseRepository:
     def update(self):
         self.session.commit()
 
-    async def user_list(self, user_id, user_location, radius_min, radius_max):
+    async def user_list(self, user_id, user_location, radius_min, radius_max, limit=50, offset=0):
 
         user_point = func.ST_SetSRID(func.ST_GeomFromText(user_location, 4326), 4326)
 
@@ -50,6 +50,8 @@ class AsyncBaseRepository:
                 ST_Distance(User.location, user_point) >= radius_min,
             )
             .order_by("distance")
+            .limit(limit)
+            .offset(offset)
         )
 
         result = await self.session.execute(stmt)

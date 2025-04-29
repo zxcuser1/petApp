@@ -19,6 +19,7 @@ class UserSettingsSchema(BaseModel):
 
 
 class UserListSchema(BaseModel):
+    id: int
     name: str = Field(max_length=100)
     city: str
     description: str = Field(max_length=150)

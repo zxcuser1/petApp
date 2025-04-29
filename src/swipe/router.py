@@ -11,6 +11,8 @@ router = APIRouter()
 async def swipe(source: int, target: int, is_liked: bool):
     try:
         async with session_factory() as session:
+            if source <= 0 or target <= 0:
+                raise HTTPException(status_code=400, detail="Invalid Id")
             repo = AsyncBaseRepository(session)
             ids = [source, target]
             ids.sort()
@@ -32,6 +34,6 @@ async def swipe(source: int, target: int, is_liked: bool):
                 like.user2_like = is_liked if ids[1] == source else like.user2_like
                 await repo.update()
 
+            return {"statuscode": "200", "message": "Swipe recorded successful"}
     except Exception as ex:
-        session.rollback()
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(ex)}")

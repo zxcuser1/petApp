@@ -5,6 +5,7 @@ from src.users.schemas import UserSchema, UserSettingsSchema, UserInfoSchema, Us
 from src.database.database import session_factory, s3_factory, redis_factory
 from src.database.models import User, Settings
 from src.database.repository import AsyncBaseRepository
+from fastapi import Query
 
 BUCKET_NAME = os.getenv("BUCKET_NAME")
 
@@ -31,8 +32,9 @@ async def create_user(user: UserSchema):
                 )
             )
             await repo.add(new_user)
+
+            return {"statuscode": 200, "user_id": new_user.id, "message": "OK"}
     except Exception as ex:
-        await session.rollback()
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(ex)}")
 
 
@@ -51,7 +53,6 @@ async def update_user_settings(user_id: int, settings: UserSettingsSchema):
             await repo.update()
 
     except Exception as ex:
-        await session.rollback()
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(ex)}")
 
 
@@ -64,16 +65,24 @@ async def upload_images(user_id: int, images: list[UploadFile]):
             if not (1 <= len(images) <= 4):
                 raise HTTPException(status_code=400, detail=f"Number of images should be between 1 and 4")
 
-            num = 1
+            allowed_file_extension = [".jpg", ".jpeg", ".png"]
             urls = []
-            for file in images:
+
+            for num, file in enumerate(images, 1):
                 file_extension = file.filename.split('.')[-1]
+
+                if not (file_extension in allowed_file_extension):
+                    raise HTTPException(status_code=400, detail="Unsupported file")
+
                 key = f"user_photos/{user_id}/{num}.{file_extension}"
                 content = await file.read()
-                s3_factory.put_object(Bucket=BUCKET_NAME, Key=key, Body=content, ContentType=file.content_type)
-                file_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{key}"
-                urls.append(file_url)
-                num += 1
+
+                try:
+                    s3_factory.put_object(Bucket=BUCKET_NAME, Key=key, Body=content, ContentType=file.content_type)
+                    file_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{key}"
+                    urls.append(file_url)
+                except Exception as ex:
+                    raise HTTPException(status_code=500, detail=str(ex))
 
             user = await repo.get_by_id(User, user_id)
 
@@ -84,12 +93,13 @@ async def upload_images(user_id: int, images: list[UploadFile]):
 
             await repo.update()
 
+            return {"statuscode": 200, "message": "User images uploaded successful", "file_urls": urls}
+
     except Exception as ex:
-        await session.rollback()
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(ex)}")
 
 
-@router.put("users/{user_id}/update_user_info", description="Обновленние данных пользователя")
+@router.put("/users/{user_id}/update_user_info", description="Обновленние данных пользователя")
 async def update_user_info(user_id: int, user_info: UserInfoSchema):
     try:
         async with session_factory() as session:
@@ -104,35 +114,72 @@ async def update_user_info(user_id: int, user_info: UserInfoSchema):
 
             await repo.update()
 
+            return {"statuscode": 200, "message": "User settings updated successful"}
     except Exception as ex:
-        session.rollback()
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(ex)}")
 
 
-@router.get("/users/{user_id}/get_swipe_list", description="Список пользователей для свайпа")
-async def get_get_swipe_list_list(user_id: int):
+@router.get("/users/{user_id}/swipe_list", description="Заполнение кэша для свайпа")
+async def get_swipe_list(user_id: int, limit: int = Query(50, le=100, gt=0), offset: int = Query(0, ge=0)):
     try:
         async with session_factory() as session:
+
             repo = AsyncBaseRepository(session)
-            redis_key = f"user_list_{user_id}"
-            if redis_factory.exists(redis_key):
-                cached_data = redis_factory.get(redis_key)
-                users_data = json.loads(cached_data)
-                users = [UserListSchema(**data) for data in users_data]
-                return users
+
+            redis_key = f"user_list:{user_id}"
 
             current_user = await repo.get_user_with_settings(user_id)
+
             if current_user is None:
                 raise HTTPException(status_code=404, detail="User not found")
 
-            result = await repo.user_list(user_id, current_user.location, current_user.settings.radiusL,
-                                          current_user.settings.radiusR)
+            result = await repo.user_list(
+                user_id,
+                current_user.location,
+                current_user.settings.radiusL,
+                current_user.settings.radiusR,
+                limit=limit,
+                offset=offset
+            )
 
-            data = [UserListSchema(**user) for user in result]
-            serialized = json.dumps([user.dict() for user in data])
+            swipe_list = [UserListSchema(**user) for user in result]
+            serialized = json.dumps([user.dict() for user in swipe_list])
             redis_factory.set(redis_key, serialized)
-            return data
+
+            return {"statuscode": 200, "message": "Swipe list cached successfully"}
 
     except Exception as ex:
-        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(ex)}")
+
+
+@router.get("/users/{user_id}/next_profile", description="Получить следующего пользователя из свайп-листа")
+async def get_next_profile(user_id: int, prev_user_id: int | None = None):
+    try:
+        redis_key = f"user_list:{user_id}"
+
+        if not redis_factory.exists(redis_key):
+            raise HTTPException(status_code=404, detail="Swipe list not found")
+
+        cached_data = redis_factory.get(redis_key)
+        swipe_list = [UserListSchema(**data) for data in json.loads(cached_data)]
+
+        if not swipe_list:
+            raise HTTPException(status_code=404, detail="Swipe list is empty")
+
+        if prev_user_id is None:
+            return swipe_list[0]
+
+        for index, user in enumerate(swipe_list):
+            if user.id == prev_user_id:
+                next_index = index + 1
+
+                if next_index >= len(swipe_list):
+                    redis_factory.delete(redis_key)
+                    raise HTTPException(status_code=404, detail="No more users")
+
+                return swipe_list[next_index]
+
+        raise HTTPException(status_code=404, detail="Previous user not found in list")
+
+    except Exception as ex:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(ex)}")

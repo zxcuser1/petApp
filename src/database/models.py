@@ -11,15 +11,16 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String)
     images: Mapped[str] = mapped_column(String)
+    description: Mapped[str] = mapped_column(String)
     city: Mapped[str] = mapped_column(String)
     age: Mapped[int] = mapped_column()
     location: Mapped[Any] = mapped_column(Geography(geometry_type='POINT', srid=4326))
-    gender: Mapped[bool]
+    gender: Mapped[bool] = mapped_column()
     settings: Mapped["Settings"] = relationship(back_populates="user", uselist=False)
 
 
 class Likes(Base):
-    __tablename__ = 'likes'
+    __tablename__ = 'swipe'
 
     user1_id: Mapped[int] = mapped_column(primary_key=True)
     user2_id: Mapped[int] = mapped_column(primary_key=True)

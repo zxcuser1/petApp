@@ -3,6 +3,7 @@ from src.database.models import Likes
 from src.database.database import session_factory
 from src.database.repository import AsyncBaseRepository
 from sqlalchemy import select
+from src.notification.notify_service import notify
 
 router = APIRouter()
 
@@ -25,9 +26,10 @@ async def swipe(source: int, target: int, is_liked: bool):
                 new_like = Likes(
                     user1_id=ids[0],
                     user2_id=ids[1],
-                    user1_like=is_liked if ids[0] == source else False,
-                    user2_like=is_liked if ids[1] == source else False
+                    user1_like=is_liked if ids[0] == source else None,
+                    user2_like=is_liked if ids[1] == source else None
                 )
+                await notify(target)
                 await repo.add(new_like)
             else:
                 like.user1_like = is_liked if ids[0] == source else like.user1_like

@@ -24,8 +24,8 @@ class Likes(Base):
 
     user1_id: Mapped[int] = mapped_column(primary_key=True)
     user2_id: Mapped[int] = mapped_column(primary_key=True)
-    user1_like: Mapped[bool] = mapped_column()
-    user2_like: Mapped[bool] = mapped_column()
+    user1_like: Mapped[bool] = mapped_column(nullable=True)
+    user2_like: Mapped[bool] = mapped_column(nullable=True)
 
 
 class Settings(Base):

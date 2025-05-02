@@ -3,7 +3,7 @@ from src.database.models import Likes
 from src.database.database import session_factory
 from src.database.repository import AsyncBaseRepository
 from sqlalchemy import select
-from src.notification.notify_service import notify
+from src.notification.router import notify
 
 router = APIRouter()
 

@@ -4,7 +4,7 @@ from src.main import rabbit_manager
 
 async def on_message(message: IncomingMessage):
     async with message.process():
-        print(f"[x] Received message: {message.body.decode()}")
+        print(f">>>> Received message: {message.body.decode()}")
 
 
 async def start_consumer():

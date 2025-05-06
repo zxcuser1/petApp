@@ -1,7 +1,9 @@
 import json
 import os
 from fastapi import APIRouter, UploadFile, HTTPException
-from src.users.schemas import UserSchema, UserSettingsSchema, UserInfoSchema, UserListSchema
+from starlette.responses import JSONResponse
+
+from src.users.schemas import UserSchema, UserSettingsSchema, UserInfoSchema, UserListSchema, UserProfileSchema
 from src.database.database import session_factory, s3_factory, redis_factory
 from src.database.models import User, Settings
 from src.database.repository import AsyncBaseRepository
@@ -12,7 +14,7 @@ BUCKET_NAME = os.getenv("BUCKET_NAME")
 router = APIRouter()
 
 
-@router.post("/users/create_user", description="Создание пользователя")
+@router.post("/users", description="Создание пользователя")
 async def create_user(user: UserSchema):
     try:
         async with session_factory() as session:
@@ -33,7 +35,7 @@ async def create_user(user: UserSchema):
             )
             await repo.add(new_user)
 
-            return {"statuscode": 200, "user_id": new_user.id, "message": "OK"}
+            return JSONResponse(status_code=200, content={"message": "OK", "user_id": new_user.id})
     except Exception as ex:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(ex)}")
 
@@ -47,7 +49,7 @@ async def update_user_settings(user_id: int, settings: UserSettingsSchema):
             if user is None:
                 raise HTTPException(status_code=404, detail=f"User not found")
 
-            for key, val in settings.dict():
+            for key, val in settings.dict().items():
                 setattr(user.settings, key, val)
 
             await repo.update()
@@ -93,7 +95,7 @@ async def upload_images(user_id: int, images: list[UploadFile]):
 
             await repo.update()
 
-            return {"statuscode": 200, "message": "User images uploaded successful", "file_urls": urls}
+            return JSONResponse(status_code=200, content={"message": "OK", "user_files": urls})
 
     except Exception as ex:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(ex)}")
@@ -114,7 +116,7 @@ async def update_user_info(user_id: int, user_info: UserInfoSchema):
 
             await repo.update()
 
-            return {"statuscode": 200, "message": "User settings updated successful"}
+            return JSONResponse(status_code=200, content={"message": "Updated successfully"})
     except Exception as ex:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(ex)}")
 
@@ -146,7 +148,7 @@ async def get_swipe_list(user_id: int, limit: int = Query(50, le=100, gt=0), off
             serialized = json.dumps([user.dict() for user in swipe_list])
             redis_factory.set(redis_key, serialized)
 
-            return {"statuscode": 200, "message": "Swipe list cached successfully"}
+            return JSONResponse(status_code=200, content={"message": "Cached"})
 
     except Exception as ex:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(ex)}")
@@ -167,7 +169,7 @@ async def get_next_profile(user_id: int, prev_user_id: int | None = None):
             raise HTTPException(status_code=404, detail="Swipe list is empty")
 
         if prev_user_id is None:
-            return swipe_list[0]
+            return JSONResponse(status_code=200, content=swipe_list[0].dict())
 
         for index, user in enumerate(swipe_list):
             if user.id == prev_user_id:
@@ -177,9 +179,39 @@ async def get_next_profile(user_id: int, prev_user_id: int | None = None):
                     redis_factory.delete(redis_key)
                     raise HTTPException(status_code=404, detail="No more users")
 
-                return swipe_list[next_index]
+                return JSONResponse(status_code=200, content=swipe_list[next_index].dict())
 
         raise HTTPException(status_code=404, detail="Previous user not found in list")
+
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(ex)}")
+
+
+@router.get("/users/user_profile/{user_id}", description="Получить профиль пользователя")
+async def user_profile(user_id: int):
+    try:
+        redis_key = f"user:{user_id}"
+        if not redis_factory.exists(redis_key):
+            async with session_factory() as session:
+                repo = AsyncBaseRepository(session)
+
+                current_user = await repo.get_by_id(User, user_id)
+
+                if current_user is None:
+                    raise HTTPException(status_code=404, detail="User not found")
+
+                exp_time_sec = 86400
+
+                profile = UserProfileSchema.from_orm(current_user)
+                serialized = json.dumps(profile.dict())
+                redis_factory.set(redis_key, serialized, ex=exp_time_sec)
+
+                return JSONResponse(status_code=200, content={"profile": profile.dict()})
+
+        cached_data = redis_factory.get(redis_key)
+        profile = UserProfileSchema(**json.loads(cached_data))
+
+        return JSONResponse(status_code=200, content={"profile": profile.dict()})
 
     except Exception as ex:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(ex)}")

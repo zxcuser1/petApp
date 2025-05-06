@@ -1,4 +1,6 @@
 from fastapi import APIRouter, HTTPException
+from starlette.responses import JSONResponse
+
 from src.database.models import Likes
 from src.database.database import session_factory
 from src.database.repository import AsyncBaseRepository
@@ -36,6 +38,6 @@ async def swipe(source: int, target: int, is_liked: bool):
                 like.user2_like = is_liked if ids[1] == source else like.user2_like
                 await repo.update()
 
-            return {"statuscode": "200", "message": "Swipe recorded successful"}
+            return JSONResponse(status_code=200, content={"message": "Swipe recorded"})
     except Exception as ex:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(ex)}")

@@ -17,7 +17,8 @@ class User(Base):
     location: Mapped[Any] = mapped_column(Geography(geometry_type='POINT', srid=4326))
     gender: Mapped[bool] = mapped_column()
     settings: Mapped["Settings"] = relationship(back_populates="user", uselist=False)
-
+    role_id: Mapped[int] = mapped_column(ForeignKey('roles.role_id'))
+    role: Mapped["Roles"] = relationship("Roles", back_populates="users", uselist=False)
 
 class Likes(Base):
     __tablename__ = 'swipe'
@@ -39,3 +40,11 @@ class Settings(Base):
     gender: Mapped[bool] = mapped_column()
 
     user: Mapped["User"] = relationship(back_populates="settings")
+
+
+class Roles(Base):
+    __tablename__ = 'roles'
+
+    role_id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String)
+    users: Mapped["User"] = relationship("User", back_populates="role")

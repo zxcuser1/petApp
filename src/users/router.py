@@ -1,13 +1,13 @@
 import json
 import os
-from fastapi import APIRouter, UploadFile, HTTPException
+from fastapi import APIRouter, UploadFile, HTTPException, Query, Depends
 from starlette.responses import JSONResponse
 
 from src.users.schemas import UserSchema, UserSettingsSchema, UserInfoSchema, UserListSchema, UserProfileSchema
 from src.database.database import session_factory, s3_factory, redis_factory
 from src.database.models import User, Settings
 from src.database.repository import AsyncBaseRepository
-from fastapi import Query
+from src.auth.auth_provider import token_provider, require_role
 
 BUCKET_NAME = os.getenv("BUCKET_NAME")
 
@@ -19,6 +19,7 @@ async def create_user(user: UserSchema):
     try:
         async with session_factory() as session:
             repo = AsyncBaseRepository(session)
+            role = await repo.get_role("User")
             new_user = User(
                 name=user.name,
                 city=user.city,
@@ -31,17 +32,22 @@ async def create_user(user: UserSchema):
                     radiusL=0,
                     radiusR=200,
                     gender=not user.gender
-                )
+                ),
+                role_id=role.id,
+                role=role
+
             )
             await repo.add(new_user)
-
-            return JSONResponse(status_code=200, content={"message": "OK", "user_id": new_user.id})
+            token = token_provider.create_access_token(uid=user.id, role=role.name)
+            return JSONResponse(status_code=200,
+                                content={"message": "OK", "user_id": new_user.id, "access_token": token})
     except Exception as ex:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(ex)}")
 
 
 @router.put("/user/{user_id}/update_user_settings", description="Обновление настроек поиска")
-async def update_user_settings(user_id: int, settings: UserSettingsSchema):
+async def update_user_settings(user_id: int, settings: UserSettingsSchema,
+                               user=Depends(require_role("User"))):
     try:
         async with session_factory() as session:
             repo = AsyncBaseRepository(session)
@@ -59,7 +65,7 @@ async def update_user_settings(user_id: int, settings: UserSettingsSchema):
 
 
 @router.post("/users/{user_id}/upload_images", description="Загрузка изображений")
-async def upload_images(user_id: int, images: list[UploadFile]):
+async def upload_images(user_id: int, images: list[UploadFile], user=Depends(require_role("User"))):
     try:
         async with session_factory() as session:
             repo = AsyncBaseRepository(session)
@@ -102,7 +108,7 @@ async def upload_images(user_id: int, images: list[UploadFile]):
 
 
 @router.put("/users/{user_id}/update_user_info", description="Обновленние данных пользователя")
-async def update_user_info(user_id: int, user_info: UserInfoSchema):
+async def update_user_info(user_id: int, user_info: UserInfoSchema, user=Depends(require_role("User"))):
     try:
         async with session_factory() as session:
 
@@ -122,7 +128,9 @@ async def update_user_info(user_id: int, user_info: UserInfoSchema):
 
 
 @router.get("/users/{user_id}/swipe_list", description="Заполнение кэша для свайпа")
-async def get_swipe_list(user_id: int, limit: int = Query(50, le=100, gt=0), offset: int = Query(0, ge=0)):
+async def get_swipe_list(user_id: int, limit: int = Query(50, le=100, gt=0),
+                         offset: int = Query(0, ge=0),
+                         user=Depends(require_role("User"))):
     try:
         async with session_factory() as session:
 
@@ -155,7 +163,7 @@ async def get_swipe_list(user_id: int, limit: int = Query(50, le=100, gt=0), off
 
 
 @router.get("/users/{user_id}/next_profile", description="Получить следующего пользователя из свайп-листа")
-async def get_next_profile(user_id: int, prev_user_id: int | None = None):
+async def get_next_profile(user_id: int, prev_user_id: int | None = None, user=Depends(require_role("User"))):
     try:
         redis_key = f"user_list:{user_id}"
 
@@ -188,7 +196,7 @@ async def get_next_profile(user_id: int, prev_user_id: int | None = None):
 
 
 @router.get("/users/user_profile/{user_id}", description="Получить профиль пользователя")
-async def user_profile(user_id: int):
+async def user_profile(user_id: int, user=Depends(require_role("User"))):
     try:
         redis_key = f"user:{user_id}"
         if not redis_factory.exists(redis_key):

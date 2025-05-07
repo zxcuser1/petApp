@@ -1,5 +1,8 @@
+import datetime
+
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import text
 import config
 import redis
 import os
@@ -30,4 +33,10 @@ s3_factory = boto3.client(
 
 
 class Base(DeclarativeBase):
-    pass
+    __abstract__ = True
+
+    created_at: Mapped[datetime.datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"))
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        server_default=text("TIMEZONE('utc', now())"),
+        onupdate=datetime.datetime.utcnow()
+    )

@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func
 from geoalchemy2.functions import ST_Distance, ST_DWithin
-from src.database.models import User
+from src.database.models import User, Roles
 
 
 class AsyncBaseRepository:
@@ -57,3 +57,8 @@ class AsyncBaseRepository:
         result = await self.session.execute(stmt)
 
         return result.all()
+
+    async def get_role(self, name):
+        return await self.session.execute(
+            select(Roles).where(Roles.name == name)
+        )

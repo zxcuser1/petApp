@@ -1,18 +1,17 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 from starlette.responses import JSONResponse
 
 from src.database.models import Likes
 from src.database.database import session_factory
 from src.database.repository import AsyncBaseRepository
 from sqlalchemy import select
-from src.notification.router import notify
-from src.auth.auth_provider import require_role
+from src.notification.notify import notification
 
 router = APIRouter()
 
 
-@router.post("/swipe/{source}_{target}", description="Свайп от пользователя")
-async def swipe(source: int, target: int, is_liked: bool, user=Depends(require_role("User"))):
+@router.post("/swipes/{source}_{target}", description="Свайп от пользователя")
+async def swipe(source: int, target: int, is_liked: bool):
     try:
         async with session_factory() as session:
             if source <= 0 or target <= 0:
@@ -32,7 +31,7 @@ async def swipe(source: int, target: int, is_liked: bool, user=Depends(require_r
                     user1_like=is_liked if ids[0] == source else None,
                     user2_like=is_liked if ids[1] == source else None
                 )
-                await notify(target)
+                await notification(target)
                 await repo.add(new_like)
             else:
                 like.user1_like = is_liked if ids[0] == source else like.user1_like

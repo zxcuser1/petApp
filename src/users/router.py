@@ -7,7 +7,7 @@ from src.users.schemas import UserSchema, UserSettingsSchema, UserInfoSchema, Us
 from src.database.database import session_factory, s3_factory, redis_factory
 from src.database.models import User, Settings
 from src.database.repository import AsyncBaseRepository
-from src.auth.auth_provider import token_provider, require_role
+from src.auth.auth_provider import token_provider
 
 BUCKET_NAME = os.getenv("BUCKET_NAME")
 
@@ -39,15 +39,18 @@ async def create_user(user: UserSchema):
             )
             await repo.add(new_user)
             token = token_provider.create_access_token(uid=user.id, role=role.name)
+            headers = {"access_token": token}
+
             return JSONResponse(status_code=200,
-                                content={"message": "OK", "user_id": new_user.id, "access_token": token})
+                                content={"message": "OK", "user_id": new_user.id},
+                                headers=headers)
+
     except Exception as ex:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(ex)}")
 
 
 @router.put("/user/{user_id}/update_user_settings", description="Обновление настроек поиска")
-async def update_user_settings(user_id: int, settings: UserSettingsSchema,
-                               user=Depends(require_role("User"))):
+async def update_user_settings(user_id: int, settings: UserSettingsSchema):
     try:
         async with session_factory() as session:
             repo = AsyncBaseRepository(session)
@@ -65,7 +68,7 @@ async def update_user_settings(user_id: int, settings: UserSettingsSchema,
 
 
 @router.post("/users/{user_id}/upload_images", description="Загрузка изображений")
-async def upload_images(user_id: int, images: list[UploadFile], user=Depends(require_role("User"))):
+async def upload_images(user_id: int, images: list[UploadFile]):
     try:
         async with session_factory() as session:
             repo = AsyncBaseRepository(session)
@@ -108,7 +111,7 @@ async def upload_images(user_id: int, images: list[UploadFile], user=Depends(req
 
 
 @router.put("/users/{user_id}/update_user_info", description="Обновленние данных пользователя")
-async def update_user_info(user_id: int, user_info: UserInfoSchema, user=Depends(require_role("User"))):
+async def update_user_info(user_id: int, user_info: UserInfoSchema):
     try:
         async with session_factory() as session:
 
@@ -129,8 +132,7 @@ async def update_user_info(user_id: int, user_info: UserInfoSchema, user=Depends
 
 @router.get("/users/{user_id}/swipe_list", description="Заполнение кэша для свайпа")
 async def get_swipe_list(user_id: int, limit: int = Query(50, le=100, gt=0),
-                         offset: int = Query(0, ge=0),
-                         user=Depends(require_role("User"))):
+                         offset: int = Query(0, ge=0)):
     try:
         async with session_factory() as session:
 
@@ -163,7 +165,7 @@ async def get_swipe_list(user_id: int, limit: int = Query(50, le=100, gt=0),
 
 
 @router.get("/users/{user_id}/next_profile", description="Получить следующего пользователя из свайп-листа")
-async def get_next_profile(user_id: int, prev_user_id: int | None = None, user=Depends(require_role("User"))):
+async def get_next_profile(user_id: int, prev_user_id: int | None = None):
     try:
         redis_key = f"user_list:{user_id}"
 
@@ -196,7 +198,7 @@ async def get_next_profile(user_id: int, prev_user_id: int | None = None, user=D
 
 
 @router.get("/users/user_profile/{user_id}", description="Получить профиль пользователя")
-async def user_profile(user_id: int, user=Depends(require_role("User"))):
+async def user_profile(user_id: int):
     try:
         redis_key = f"user:{user_id}"
         if not redis_factory.exists(redis_key):

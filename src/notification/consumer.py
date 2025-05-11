@@ -1,5 +1,5 @@
 from aio_pika import IncomingMessage
-from src.main import rabbit_manager
+from src.database.database import rabbit_manager
 
 
 async def on_message(message: IncomingMessage):

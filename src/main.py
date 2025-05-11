@@ -1,17 +1,13 @@
+from src.database.database import rabbit_manager
 from fastapi import FastAPI
-from src.api import main_router
-from src.database.rabbitmq import RabbitMQManager
+from src.api.init_routs import main_router
 from src.notification.consumer import start_consumer
 import asyncio
-import os
-
-HOST = os.getenv("RABBIT_MQ_HOST")
-PORT = int(os.getenv("RABBIT_MQ_PORT"))
+from src.middleware.auth_middleware import middleware
 
 app = FastAPI()
+app.middleware("http")(middleware)
 app.include_router(main_router)
-
-rabbit_manager = RabbitMQManager(host=HOST, port=PORT)
 
 
 @app.on_event("startup")

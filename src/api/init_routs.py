@@ -2,7 +2,7 @@ from fastapi import APIRouter
 
 from src.users.router import router as user_router
 from src.swipe.router import router as like_router
-from src.notification.router import router as notify_router
+from src.notification.notify import router as notify_router
 
 main_router = APIRouter()
 

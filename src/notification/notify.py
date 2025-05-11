@@ -1,15 +1,13 @@
-from aio_pika import IncomingMessage
 from src.database.database import session_factory
 from src.database.models import User
 from src.database.repository import AsyncBaseRepository
-from src.main import rabbit_manager
+from src.database.database import rabbit_manager
 from fastapi import APIRouter, HTTPException
 
 router = APIRouter()
 
 
-@router.get("/notify/{user_id}", description="Уведомление для пользователя")
-async def notify(user_id: int):
+async def notification(user_id: int):
     try:
         with session_factory() as session:
             repo = AsyncBaseRepository(session)

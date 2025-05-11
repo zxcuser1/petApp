@@ -34,6 +34,9 @@ async def middleware(request: Request, call_next):
             if not user:
                 raise HTTPException(status_code=404, detail="User not found")
 
+            if user.is_delete:
+                raise HTTPException(status_code=403, detail="User blocked")
+
             user_role = await repo.get_by_id(Roles, user.role_id)
 
             if request.url.path.startswith("/admin") and user_role.name != "Admin":

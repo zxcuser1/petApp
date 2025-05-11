@@ -1,6 +1,6 @@
 import json
 import os
-from fastapi import APIRouter, UploadFile, HTTPException, Query, Depends
+from fastapi import APIRouter, UploadFile, HTTPException, Query
 from starlette.responses import JSONResponse
 
 from src.users.schemas import UserSchema, UserSettingsSchema, UserInfoSchema, UserListSchema, UserProfileSchema

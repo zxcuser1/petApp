@@ -44,6 +44,7 @@ rabbit_manager = RabbitMQManager(host=HOST, port=PORT)
 class Base(DeclarativeBase):
     __abstract__ = True
 
+    is_delete: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime.datetime] = mapped_column(server_default=text("TIMEZONE('utc', now())"))
     updated_at: Mapped[datetime.datetime] = mapped_column(
         server_default=text("TIMEZONE('utc', now())"),

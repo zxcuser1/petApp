@@ -210,7 +210,7 @@ async def user_profile(user_id: int):
                 if current_user is None:
                     raise HTTPException(status_code=404, detail="User not found")
 
-                exp_time_sec = 86400
+                exp_time_sec = 300
 
                 profile = UserProfileSchema.from_orm(current_user)
                 serialized = json.dumps(profile.dict())
